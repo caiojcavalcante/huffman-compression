@@ -1,14 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#define byte unsigned char
+#include <stdint.h>
 #define true 1
 #define false 0
-#define MAX 256
-#define DEBUG 0 &&
+#define MAX 257
+#define BIT_SIZE 9
+#define DEBUG if (0)
 #define LEFT '0'
 #define RIGHT '1'
+#define ENDL printf("\n");
+
+typedef unsigned char byte;
 
 typedef struct node
 {
@@ -25,6 +28,21 @@ typedef struct pq_node
     struct pq_node *next;
 } pq_node_t;
 
+int *count_frequency(byte *data)
+{
+    int *freq = (int *)malloc(sizeof(int) * MAX);
+    memset(freq, 0, sizeof(int) * MAX);
+
+    for (int i = 0;; i++)
+    {
+        if (data[i] == '\0')
+            break;
+        freq[data[i]]++;
+    }
+
+    return freq;
+}
+
 node_t *create_node(byte data, int freq)
 {
     node_t *new_node = (node_t *)malloc(sizeof(node_t));
@@ -32,7 +50,6 @@ node_t *create_node(byte data, int freq)
     new_node->freq = freq;
     new_node->left = NULL;
     new_node->right = NULL;
-    DEBUG printf("node criado\n");
     return new_node;
 }
 
@@ -68,10 +85,24 @@ void enqueue(pq_node_t **pq, node_t *data)
     current->next = new_node;
 }
 
+int initialize_queue(pq_node_t **pq, int *freq, int *queue_size)
+{
+    for (int i = 0; i < MAX; i++)
+    {
+        if (freq[i] > 0)
+        {
+            node_t *new_node = create_node(i, freq[i]);
+            enqueue(pq, new_node);
+            (*queue_size)++;
+        }
+    }
+}
+
 node_t *dequeue(pq_node_t **pq)
 {
     if (*pq == NULL)
     {
+        // queue is empty
         return NULL;
     }
 
@@ -80,6 +111,20 @@ node_t *dequeue(pq_node_t **pq)
     node_t *data = temp->data;
     free(temp);
     return data;
+}
+
+void generate_huffman_tree(pq_node_t **pq, int queue_size)
+{
+    while (queue_size > 1)
+    {
+        node_t *left = dequeue(pq);
+        node_t *right = dequeue(pq);
+        node_t *new_node = create_node('*', left->freq + right->freq);
+        new_node->left = left;
+        new_node->right = right;
+        enqueue(pq, new_node);
+        queue_size--;
+    }
 }
 
 void print_tree(node_t *root, int space)
@@ -104,7 +149,7 @@ void print_tree(node_t *root, int space)
     print_tree(root->left, space);
 }
 
-int max_(int a, int b)
+int max_(int a, int b) // max is a macro in windows.h, but I use bash
 {
     return (a > b) ? a : b;
 }
@@ -120,7 +165,7 @@ int get_tree_depth(node_t *root)
     return 1 + max_(l, r);
 }
 
-void generate_huffman_codes(node_t *root, char dict[MAX][8], char code[8], int code_size)
+void generate_huffman_codes(const node_t *root, char dict[MAX][BIT_SIZE], char code[BIT_SIZE], int code_size)
 {
     if (root == NULL)
         return;
@@ -128,8 +173,9 @@ void generate_huffman_codes(node_t *root, char dict[MAX][8], char code[8], int c
     if (root->left == NULL && root->right == NULL)
     {
         // we have a leaf node
-        strcpy(dict[root->data], code);
-        printf("%c: %s\n", root->data, dict[root->data]);
+        code[code_size] = '\0';         // null terminate the string
+        strcpy(dict[root->data], code); // copy the code to the dictionary
+        DEBUG printf("%c: %s\n", root->data, dict[root->data]);
         return;
     }
     // traverse left subtree
@@ -141,93 +187,77 @@ void generate_huffman_codes(node_t *root, char dict[MAX][8], char code[8], int c
     generate_huffman_codes(root->right, dict, code, code_size + 1);
 }
 
-void print_binary(byte n)
+void print_binary(short n, int size)
 {
-    for (int i = sizeof(n) * 8 - 1; i >= 0; i--)
+    for (int i = sizeof(n) * size - 1; i >= 0; i--)
     {
-        if (n & (1u << i))
+        if (n & (1 << i))
             printf("1");
         else
             printf("0");
     }
 }
 
-int main()
+void compress(const char *filename, byte data[], int encoded_data_size, short tree_size, short trash_size, char tree[])
 {
-    byte *data = "hello marcio ribeiro!";
-
-    // Count the frequency of each character
-
-    int *freq = (int *)malloc(sizeof(int) * MAX);
-    memset(freq, 0, sizeof(int) * MAX);
-
-    for (int i = 0; i < strlen(data); i++)
+    FILE *fp = fopen(filename, "wb");
+    if (fp == NULL)
     {
-        freq[data[i]]++;
+        printf("Error opening file '%s'\n", filename);
+        return;
     }
+    // 3 bits for trash, 13 bits for tree size, tree, data
 
-    pq_node_t *pq = NULL;
-    int queue_size = 0;
+    printf("trash_size: %d, tree_size: %d, encoded_data_size: %d", trash_size, tree_size, encoded_data_size);
 
-    for (int i = 0; i < MAX; i++)
+    byte buffer;
+
+    tree_size <<= 3;
+    tree_size >>= 3;
+    trash_size <<= 13;
+
+    short header = trash_size | tree_size;
+
+    'b';
+
+    0b01100010;
+
+    printf("header: ");
+    print_binary(header, 8);
+    ENDL
+
+    buffer = header >> 8;
+    fwrite(&buffer, sizeof(byte), 1, fp);
+
+    buffer = header & 0xFF;
+    fwrite(&buffer, sizeof(byte), 1, fp);
+
+    fwrite(tree + 1, sizeof(char), tree_size, fp);
+
+    fwrite(data, sizeof(byte), encoded_data_size, fp);
+    fclose(fp);
+}
+
+void decompress(const char *filename)
+{
+    FILE *fp = fopen(filename, "rb");
+    if (fp == NULL)
     {
-        if (freq[i] > 0)
-        {
-            node_t *new_node = create_node(i, freq[i]);
-            enqueue(&pq, new_node);
-            queue_size++;
-        }
+        printf("Error opening file '%s'\n", filename);
+        return;
     }
-
-    while (queue_size > 1)
+    // read the data from the file
+    byte buffer = 0;
+    printf("Decompressed data: ");
+    while (fread(&buffer, sizeof(byte), 1, fp) == 1)
     {
-        node_t *left = dequeue(&pq);
-        node_t *right = dequeue(&pq);
-        node_t *new_node = create_node('+', left->freq + right->freq);
-        new_node->left = left;
-        new_node->right = right;
-        enqueue(&pq, new_node);
-        queue_size--;
+        print_binary(buffer, sizeof(byte) * 8);
     }
+    fclose(fp);
+}
 
-    // we have our huffman tree as the only node in the queue
-    node_t *root = dequeue(&pq);
-
-    print_tree(root, 0);
-
-    // free the memory
-    free(freq);
-
-    // get the depth of the tree
-    int depth = get_tree_depth(root);
-
-    printf("Depth: %d\n", depth);
-
-    char dict[MAX][8];
-    char code[8];
-
-    generate_huffman_codes(root, dict, code, 0);
-
-    // printf("Encoded data: ");
-    // for (int i = 0; i < strlen(data); i++)
-    // {
-    //     printf("%s", dict[data[i]]);
-    // }
-
-    printf("%s\n", data);
-
-    // print original data in binary
-    printf("Original data: ");
-    for (int i = 0; i < strlen(data); i++)
-    {
-        print_binary(data[i]);
-    }
-    printf("\n");
-    printf("\n");
-
-    byte encoded_data[100];
-    int encoded_data_size = 0;
-
+void encode_data(byte data[], char dict[MAX][BIT_SIZE], byte encoded_data[], int *encoded_data_size, int *trash_size)
+{
     int data_len = strlen(data);
     int current_bit = 0;
     byte current_byte = 0;
@@ -235,43 +265,157 @@ int main()
     for (int i = 0; i < data_len; i++)
     {
         char *code = dict[data[i]];
-        int code_len = strlen(code);
 
-        for (int j = 0; j < code_len; j++)
+        for (int j = 0; code[j] != '\0'; j++)
         {
             current_byte <<= 1;
             if (code[j] == '1')
             {
-                current_byte |= 1;
+                current_byte |= 1; // set the last bit to 1
             }
 
-            current_bit++;
+            current_bit++; // increment the current bit
 
             if (current_bit == 8)
             {
-                encoded_data[encoded_data_size++] = current_byte;
-                current_byte = 0;
+                encoded_data[(*encoded_data_size)++] = current_byte; // save the byte
+                current_byte = 0;                                    // reset the byte
                 current_bit = 0;
             }
         }
     }
 
-    if (current_bit > 0)
+    if (current_bit > 0) // if there are remaining bits
     {
-        current_byte <<= 8 - current_bit;
-        encoded_data[encoded_data_size++] = current_byte;
+        current_byte <<= 8 - current_bit;                    // shift the remaining bits to the left
+        encoded_data[(*encoded_data_size)++] = current_byte; // save the byte
+        // we are filling the remaining bits with 0s
+        *trash_size = 8 - current_bit;
     }
+}
 
+void inorder_traversal(node_t *root, char *tree, int *tree_size)
+{
+    if (root == NULL)
+        return;
+
+    (*tree_size)++;
+
+    tree[*tree_size] = root->data;
+
+    inorder_traversal(root->left, tree, tree_size);
+    inorder_traversal(root->right, tree, tree_size);
+}
+
+void print_encoded_data(byte encoded_data[], int encoded_data_size)
+{
     printf("Encoded data: ");
     for (int i = 0; i < encoded_data_size; i++)
     {
-        print_binary(encoded_data[i]);
+        print_binary(encoded_data[i], sizeof(byte) * 8);
     }
     printf("\n");
+}
+
+void decode(node_t *root, byte encoded_data[], int encoded_data_size)
+{
+    node_t *current_node = root;
+    int current_bit_position = 0;
+
+    byte current_byte = 0;
+
+    printf("Decoded data: ");
+    for (int i = 0; i < encoded_data_size; i++)
+    {
+        current_byte = encoded_data[i];
+        current_bit_position = 7;
+
+        while (current_bit_position >= 0)
+        {
+            if (current_byte & (1 << current_bit_position))
+            {
+                current_node = current_node->right;
+            }
+            else
+            {
+                current_node = current_node->left;
+            }
+            current_bit_position--;
+
+            if (current_node->left == NULL && current_node->right == NULL)
+            {
+                printf("%c", current_node->data);
+                current_node = root;
+            }
+        }
+    }
+    printf("\n");
+}
+
+int get_file_size()
+{
+    FILE *fp = fopen("compressed.huff", "r");
+    if (fp == NULL)
+    {
+        return -10;
+    }
+    fseek(fp, 0, SEEK_END);
+    int size = ftell(fp);
+    fclose(fp);
+    return size;
+}
+
+int main()
+{
+    byte *data = "Alo Marcio Ribeiro, por acaso você está solteiro?";
+
+    // Count the frequency of each character
+    int *freq = count_frequency(data);
+
+    // Create a priority queue
+    pq_node_t *pq = NULL;
+    int queue_size = 0;
+
+    initialize_queue(&pq, freq, &queue_size);
+
+    generate_huffman_tree(&pq, queue_size);
+
+    // we have our huffman tree as the only node in the queue
+    node_t *root = dequeue(&pq);
+
+    // print the tree to check if it is correct
+    DEBUG print_tree(root, 0);
+
+    // free the memory
+    free(freq);
+
+    char dict[MAX][BIT_SIZE];
+    char code[BIT_SIZE];
+
+    // generate the dictionary like a = 00, b = 01, etc...save it in dict
+    generate_huffman_codes(root, dict, code, 0);
+
+    byte encoded_data[100];
+    int encoded_data_size = 0;
+    int trash_size = 0;
+
+    encode_data(data, dict, encoded_data, &encoded_data_size, &trash_size);
+
+    int tree_size = 0;
+    char *tree = (char *)malloc(100 * sizeof(char));
+
+    // save the tree in the array tree
+    inorder_traversal(root, tree, &tree_size);
+    DEBUG printf("\ntree:");
+    for (int i = 0; i <= tree_size; i++)
+    {
+        printf("%c", tree[i]);
+    }
     printf("\n");
 
-    printf("Original data size: %ld bytes\n", strlen(data) * sizeof(char));
-    printf("Encoded data size: %d bytes\n", encoded_data_size);
+    compress("compressed.huff", encoded_data, encoded_data_size, tree_size, trash_size, tree);
 
+    // decompress("compressed.huff");
+    printf("\n");
     return 0;
 }
