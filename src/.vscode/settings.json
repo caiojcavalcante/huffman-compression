@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "debug.h": "c",
+        "structs.h": "c",
+        "limits": "c"
+    }
+}
