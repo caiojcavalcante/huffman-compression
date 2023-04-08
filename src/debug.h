@@ -1,5 +1,3 @@
-#include "structs.h"
-
 void print_tree(node_t *root, int space)
 {
     // base case
@@ -16,6 +14,7 @@ void print_tree(node_t *root, int space)
     printf("\n");
     for (int i = 10; i < space; i++)
         printf(" ");
+
     printf("'%c' (%d)\n", root->data, root->freq);
 
     // print left child

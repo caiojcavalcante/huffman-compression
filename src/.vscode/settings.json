@@ -3,5 +3,6 @@
         "debug.h": "c",
         "structs.h": "c",
         "limits": "c"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }
