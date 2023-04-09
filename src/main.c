@@ -3,49 +3,60 @@
 #include <string.h>
 #include "structs.h"
 #include "operations.h"
-// #include "debug.h"
+#include "debug.h"
 
+/**
+ * @brief does the compressing
+ */
 void compress()
 {
-    unsigned char data[100] = "Marcos ribeiro vosse esta solteiro?";
+    unsigned char data[100] = "abcd";
 
     int *frequencies = count_frequencies(data, strlen(data));
 
-    // for (int i = 0; i < 256; i++)
-    //     if (frequencies[i] > 0)
-    //         printf("%c: %d\n", i, frequencies[i]);
-
     Heap *heap = create_heap();
-
-    // insert(heap, 3, create_tree('M'));
-    // for (int i = 0; i < heap->size; i++)
-    //     printf("%c: %d\n", heap->data[i].tree->data, heap->data[i].priority);
-    // printf("\n");
-    // insert(heap, 5, create_tree('A'));
-    // for (int i = 0; i < heap->size; i++)
-    //     printf("%c: %d\n", heap->data[i].tree->data, heap->data[i].priority);
-    // printf("\n");
-
-    // insert(heap, 2, create_tree('R'));
-    // insert(heap, 6, create_tree('C'));
 
     int teste = 0;
 
-    for (unsigned char byte = 0; byte < 256; byte++)
+    for (short byte = 0; byte < 256; byte++)
     {
         if (frequencies[byte] > 0)
         {
-            insert(heap, frequencies[byte], create_tree(byte));
-            // if (teste++ > 10)
-            //     break;
+            insert(heap, frequencies[byte], create_tree(byte, NULL, NULL));
         }
     }
+    print_heap(heap);
 
-    // print the heap
-    for (int i = 0; i < heap->size; i++)
-        printf("%c: %d\n", heap->data[i].tree->data, heap->data[i].priority);
+    Tree *left;
+    Tree *right;
 
-    printf("marcos ribeiro\n");
+    int left_priority;
+    int right_priority;
+
+    while (heap->size > 1)
+    {
+        left_priority = heap->data[0].priority;
+        left = pop(heap);
+
+        right_priority = heap->data[0].priority;
+        right = pop(heap);
+
+        // printf("merging '%c: %d' with '%c: %d'\n", left->data, left_priority, right->data, right_priority);
+
+        insert(heap, left_priority + right_priority, create_tree('*', left, right));
+
+        // print_heap(heap);
+    }
+
+    Tree *root = pop(heap);
+
+    print_tree(root, 0);
+
+    int tree_depth = get_tree_depth(root);
+
+    printf("Tree depth: %d\n", tree_depth);
+
+    int *codes[256];
 }
 
 int main()

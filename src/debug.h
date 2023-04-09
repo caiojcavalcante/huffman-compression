@@ -1,4 +1,10 @@
-void print_tree(node_t *root, int space)
+/**
+ * @brief Prints the tree in a pretty way.
+ * 
+ * @param root The root of the tree.
+ * @param space The space between the levels. (Start with 0)
+*/
+void print_tree(Tree *root, int space)
 {
     // base case
     if (root == NULL)
@@ -15,13 +21,18 @@ void print_tree(node_t *root, int space)
     for (int i = 10; i < space; i++)
         printf(" ");
 
-    printf("'%c' (%d)\n", root->data, root->freq);
+    printf("'%c'\n", root->data);
 
     // print left child
     print_tree(root->left, space);
 }
-
-void print_binary(short n, int size)
+/**
+ * @brief Prints a number in binary base.
+ * 
+ * @param n The number to print.
+ * @param size The size of the number in bytes.
+*/
+void print_binary(int n, int size)
 {
     for (int i = sizeof(n) * size - 1; i >= 0; i--)
     {

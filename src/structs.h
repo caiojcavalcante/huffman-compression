@@ -5,7 +5,9 @@ typedef struct heap_node
     int priority;
     struct tree *tree;
 } Heap_node;
-
+/**
+ * @brief A struct to represent a tree node.
+*/
 typedef struct tree
 {
     unsigned char data;
