@@ -312,13 +312,10 @@ void inorder_traversal(node_t *root, char *tree, int *tree_size)
 
     if (is_escape_leaf)
     {
-        // tree[*tree_size] = '\\';
         (*tree_size)++;
     }
 
-    // tree[*tree_size] = data;
     (*tree_size)++;
-    // printf("colocando %c no indice %d\n", data, *tree_size);
 
     inorder_traversal(root->left, tree, tree_size);
     inorder_traversal(root->right, tree, tree_size);

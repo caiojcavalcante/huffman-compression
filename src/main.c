@@ -2,21 +2,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include "structs.h"
-#include "operations.h"
 #include "debug.h"
+#include "operations.h"
 
-/**
- * @brief does the compressing
- */
+#define MAX 256
+
 void compress()
 {
-    unsigned char data[100] = "abcd";
+    FILE *input_file = fopen("texto.txt", "rb");
+    int file_size = get_file_size(input_file);
 
-    int *frequencies = count_frequencies(data, strlen(data));
+    int *frequencies = count_frequencies(input_file, file_size);
 
     Heap *heap = create_heap();
-
-    int teste = 0;
 
     for (short byte = 0; byte < 256; byte++)
     {
@@ -25,13 +23,10 @@ void compress()
             insert(heap, frequencies[byte], create_tree(byte, NULL, NULL));
         }
     }
-    print_heap(heap);
 
-    Tree *left;
-    Tree *right;
+    Tree *left, *right;
 
-    int left_priority;
-    int right_priority;
+    int left_priority, right_priority;
 
     while (heap->size > 1)
     {
@@ -41,22 +36,46 @@ void compress()
         right_priority = heap->data[0].priority;
         right = pop(heap);
 
-        // printf("merging '%c: %d' with '%c: %d'\n", left->data, left_priority, right->data, right_priority);
-
-        insert(heap, left_priority + right_priority, create_tree('*', left, right));
-
-        // print_heap(heap);
+        insert(
+            heap,
+            left_priority + right_priority,
+            create_tree('*', left, right));
     }
 
     Tree *root = pop(heap);
 
-    print_tree(root, 0);
+    int max_code_size = get_tree_depth(root) + 1;
 
-    int tree_depth = get_tree_depth(root);
+    unsigned char dict[MAX][max_code_size];
+    unsigned char code[max_code_size];
 
-    printf("Tree depth: %d\n", tree_depth);
+    generate_huffman_codes(root, max_code_size, dict, code, 0);
 
-    int *codes[256];
+    free(frequencies);
+    free(heap->data);
+    free(heap);
+
+    // read file compressing
+
+    FILE *output_file = fopen("OUTPUT.txt", "wb");
+
+    int tree_size = 10;
+
+    /*
+        For performance reasons, we will write the tree
+        part of the header first, then the data and then
+        the trash and tree sizes.
+    */
+
+   int tree_size = inorder_traversal(root, output_file);
+
+    int trash_size = encode_data(
+        input_file,
+        output_file,
+        max_code_size,
+        dict,
+        file_size,
+        tree_size);
 }
 
 int main()

@@ -4,21 +4,43 @@
  */
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
+#define MAX 256
+#define BYTE_SIZE 8
+#define BIT_SIZE 9
+/**
+ * @brief Gets the file size.
+ *
+ * @param file The file to get the size.
+ * @return The size of the file.
+ */
+int get_file_size(FILE *file)
+{
+    if (file == NULL)
+        return -1;
 
+    fseek(file, 0, SEEK_END);
+    int size = ftell(file);
+    rewind(file);
+
+    return size;
+}
 /**
  * @brief Counts the frequencies of each byte in the data.
  *
- * @param data The data to count the frequencies.
+ * @param file The file to read.
  * @param size The size of the data.
  * @return An array with the frequencies of each byte.
  */
-int *count_frequencies(unsigned char data[100], int size)
+int *count_frequencies(FILE *file, int size)
 {
-    int *frequencies = calloc(256, sizeof(int));
-
+    int *frequencies = calloc(MAX, sizeof(int));
+    unsigned char byte;
     for (int i = 0; i < size; i++)
-        frequencies[data[i]]++;
-
+    {
+        fread(&byte, sizeof(unsigned char), 1, file);
+        frequencies[byte]++;
+    }
+    rewind(file); // reset file pointer
     return frequencies;
 }
 /**
@@ -37,20 +59,6 @@ void swap(void *a, void *b, size_t size)
     free(temp);
 }
 /**
- * @brief Creates a new heap.
- *
- * @return A pointer to the newly created heap.
- */
-Heap *create_heap()
-{
-    Heap *heap = malloc(sizeof(Heap));
-    heap->data = malloc(257 * sizeof(Heap_node));
-    heap->size = 0;
-    heap->capacity = 257;
-
-    return heap;
-}
-/**
  * @brief Creates a new binary tree node with the specified data.
  *
  * @param data The data to store in the new node.
@@ -58,7 +66,7 @@ Heap *create_heap()
  * @param right The right child of the node.
  * @return A pointer to the newly created node.
  */
-Tree *create_tree(unsigned char data, Tree *left, Tree* right)
+Tree *create_tree(unsigned char data, Tree *left, Tree *right)
 {
     Tree *tree = malloc(sizeof(Tree));
     tree->data = data;
@@ -66,6 +74,21 @@ Tree *create_tree(unsigned char data, Tree *left, Tree* right)
     tree->right = right;
 
     return tree;
+}
+/**
+ * @brief Recursively frees the root nodes.
+ *
+ * @param root The tree to be freed.
+ */
+void free_tree(Tree *root)
+{
+    if (root == NULL)
+        return;
+
+    free_tree(root->left);
+    free_tree(root->right);
+
+    free(root);
 }
 /**
  * @brief Gets the tree depth.
@@ -82,6 +105,104 @@ int get_tree_depth(Tree *tree)
     int right_depth = get_tree_depth(tree->right);
 
     return 1 + max(left_depth, right_depth);
+}
+/**
+ * @brief Reads the input file and compress to the output file
+ * 
+ * @param input_file The input file
+ * @param output_file The output file
+ * @param max_code_size The maximum code size (depth of the huffman tree)
+ * @param dict The dictionary with the codes
+ * @param file_size The size of the input file
+ * @param tree_size The size of the huffman tree
+ * @return int The trash size
+*/
+int encode_data(FILE *input_file, FILE *output_file, int max_code_size, unsigned char dict[MAX][max_code_size], int file_size, int tree_size)
+{
+    int current_bit = 0;
+    int trash_size = 0;
+    unsigned char write_buffer = 0;
+    unsigned char read_buffer;
+
+    fseek(output_file, tree_size + 2, SEEK_SET); // offset for header
+
+    for (int i = 0; i < file_size; i++)
+    {
+        fread(&read_buffer, sizeof(unsigned char), 1, input_file);
+        char *code = dict[read_buffer];
+
+        for (int j = 0; code[j] != '\0'; j++)
+        {
+            write_buffer <<= 1;
+            if (code[j] == '1')
+            {
+                write_buffer |= 1; // set the last bit to 1
+            }
+
+            current_bit++; // increment the current bit
+
+            if (current_bit == 8)
+            {
+                fwrite(&write_buffer, sizeof(unsigned char), 1, output_file);
+                write_buffer = 0; // reset the byte
+                current_bit = 0;
+            }
+        }
+    }
+
+    if (current_bit > 0) // if there are remaining bits
+    {
+        write_buffer <<= 8 - current_bit;                             // shift the remaining bits to the left
+        fwrite(&write_buffer, sizeof(unsigned char), 1, output_file); // save the byte
+        // we are filling the remaining bits with 0s
+        trash_size = 8 - current_bit;
+    }
+    fclose(input_file); // we won't use the input file anymore
+    rewind(output_file); //takes the input_file back to first position
+    return trash_size;
+}
+/**
+ * @brief Generate the huffman codes.
+ *
+ * @param root The root of the tree.
+ * @param max_code_size The maximum code size.
+ * @param dict The dictionary to store the codes.
+ * @param code The current code.
+ * @param code_size The current code size.
+ */
+void generate_huffman_codes(Tree *root, int max_code_size, unsigned char dict[MAX][max_code_size], unsigned char code[BIT_SIZE], int code_size)
+{
+    if (root == NULL)
+        return;
+
+    if (root->left == NULL && root->right == NULL)
+    {
+        // we have a leaf node
+        code[code_size] = '\0';         // null terminate the string
+        strcpy(dict[root->data], code); // copy the code to the dictionary
+        return;
+    }
+    // traverse left subtree
+    code[code_size] = '0';
+    generate_huffman_codes(root->left, max_code_size, dict, code, code_size + 1);
+
+    // traverse right subtree
+    code[code_size] = '1';
+    generate_huffman_codes(root->right, max_code_size, dict, code, code_size + 1);
+}
+/**
+ * @brief Creates a new heap.
+ *
+ * @return A pointer to the newly created heap.
+ */
+Heap *create_heap()
+{
+    Heap *heap = malloc(sizeof(Heap));
+    heap->data = malloc(257 * sizeof(Heap_node));
+    heap->size = 0;
+    heap->capacity = 257;
+
+    return heap;
 }
 /**
  * @brief Heapifies the heap (min).
@@ -154,44 +275,4 @@ Tree *pop(Heap *heap)
     heap->data[0] = heap->data[--heap->size];
     heapify(heap, 0);
     return tree;
-}
-/**
- * @brief Prints the heap.
- *
- * @param heap The heap to print.
- */
-void print_heap(Heap *heap)
-{
-    if (heap->size <= 0)
-    {
-        return;
-    }
-
-    int level_size = 1;
-    int i = 0;
-
-    while (i < heap->size)
-    {
-        // print spaces before the first element of each level
-        for (int k = 0; k < (heap->size - i) * (heap->size - i) / 8; k++)
-        {
-            printf(" ");
-        }
-
-        // print the elements of the current level
-        for (int j = i; j < i + level_size && j < heap->size; j++)
-        {
-            printf("%c: %d ", heap->data[j].tree->data, heap->data[j].priority);
-
-            // print spaces between elements
-            for (int k = 0; k < (heap->size - j) / 2; k++)
-            {
-                printf(" ");
-            }
-        }
-
-        printf("\n");
-        i += level_size;
-        level_size *= 2;
-    }
 }
