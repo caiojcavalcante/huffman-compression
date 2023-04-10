@@ -13,13 +13,13 @@
  * @param file The file to get the size.
  * @return The size of the file.
  */
-int get_file_size(FILE *file)
+long get_file_size(FILE *file)
 {
     if (file == NULL)
         return -1;
 
     fseek(file, 0, SEEK_END);
-    int size = ftell(file);
+    long size = ftell(file);
     rewind(file);
 
     return size;
@@ -31,7 +31,7 @@ int get_file_size(FILE *file)
  * @param size The size of the data.
  * @return An array with the frequencies of each byte.
  */
-int *count_frequencies(FILE *file, int size)
+int *count_frequencies(FILE *file, long size)
 {
     int *frequencies = calloc(MAX, sizeof(int));
     unsigned char byte;
@@ -107,8 +107,48 @@ int get_tree_depth(Tree *tree)
     return 1 + max(left_depth, right_depth);
 }
 /**
+ * @brief Saves the tree in the output file and returns the tree size
+ *
+ * @param root The root of the tree
+ * @param output_file The output file
+ * @return The tree size
+ */
+short save_tree(Tree *root, FILE *output_file)
+{
+    if (root == NULL)
+        return 0;
+
+    int is_escape_leaf =
+        (root->data == '*' || root->data == '\\') &&
+        root->left == NULL && root->right == NULL;
+
+    if (is_escape_leaf)
+        fwrite("\\", sizeof(unsigned char), 1, output_file);
+
+    fwrite(&root->data, sizeof(unsigned char), 1, output_file);
+    int left = save_tree(root->left, output_file);
+    int right = save_tree(root->right, output_file);
+    return 1 + left + right + is_escape_leaf;
+}
+/**
+ * @brief Saves the header in the output file
+ *
+ * @param output_file The output file
+ * @param trash_size The trash size
+ * @param tree_size The tree size
+ */
+void save_header(FILE *output_file, short trash_size, short tree_size)
+{
+    trash_size <<= 13;
+    short header = trash_size | tree_size;
+    unsigned char buffer = header >> 8;
+    fwrite(&buffer, sizeof(unsigned char), 1, output_file);
+    buffer = header;
+    fwrite(&buffer, sizeof(unsigned char), 1, output_file);
+}
+/**
  * @brief Reads the input file and compress to the output file
- * 
+ *
  * @param input_file The input file
  * @param output_file The output file
  * @param max_code_size The maximum code size (depth of the huffman tree)
@@ -116,8 +156,8 @@ int get_tree_depth(Tree *tree)
  * @param file_size The size of the input file
  * @param tree_size The size of the huffman tree
  * @return int The trash size
-*/
-int encode_data(FILE *input_file, FILE *output_file, int max_code_size, unsigned char dict[MAX][max_code_size], int file_size, int tree_size)
+ */
+int save_data(FILE *input_file, FILE *output_file, int max_code_size, unsigned char dict[MAX][max_code_size], int file_size, int tree_size)
 {
     int current_bit = 0;
     int trash_size = 0;
@@ -157,8 +197,8 @@ int encode_data(FILE *input_file, FILE *output_file, int max_code_size, unsigned
         // we are filling the remaining bits with 0s
         trash_size = 8 - current_bit;
     }
-    fclose(input_file); // we won't use the input file anymore
-    rewind(output_file); //takes the input_file back to first position
+    fclose(input_file);  // we won't use the input file anymore
+    rewind(output_file); // takes the input_file back to first position
     return trash_size;
 }
 /**
