@@ -231,6 +231,112 @@ void generate_huffman_codes(Tree *root, int max_code_size, unsigned char dict[MA
     generate_huffman_codes(root->right, max_code_size, dict, code, code_size + 1);
 }
 /**
+ * @brief Creates the huffman tree from a given header.
+ *
+ * @param input_file The input file.
+ * @param tree_size The tree size.
+ * @return Tree* The huffman tree.
+ */
+Tree *get_tree_from_header(FILE *input_file, short *tree_size)
+{
+    unsigned char buffer;
+    fread(&buffer, sizeof(unsigned char), 1, input_file);
+    int is_leaf = 0;
+    if (*tree_size == 0)
+        return NULL;
+    (*tree_size)--;
+
+    if (buffer == '\\')
+    {
+        (*tree_size)--;
+        fread(&buffer, sizeof(unsigned char), 1, input_file);
+        is_leaf = 1;
+    }
+    if (buffer != '*')
+    {
+        is_leaf = 1;
+    }
+    if (is_leaf)
+    {
+        return create_tree(buffer, NULL, NULL);
+    }
+    Tree *left = get_tree_from_header(input_file, tree_size);
+    Tree *right = get_tree_from_header(input_file, tree_size);
+    return create_tree('*', left, right);
+}
+/**
+ * @brief Reads the header from the input file.
+ *
+ * @param input_file The input file.
+ * @param trash_size The trash size.
+ * @param tree_size The tree size.
+ */
+void read_header(FILE *input_file, unsigned char *trash_size, unsigned short *tree_size)
+{
+
+    unsigned char buffer;
+    fread(&buffer, sizeof(char), 1, input_file);
+
+    unsigned short header = buffer << 8;
+
+    fread(&buffer, sizeof(char), 1, input_file);
+
+    header |= buffer;
+
+    *trash_size = header >> 13;
+    *tree_size = header & 0x1FFF;
+
+    printf("Trash size: %d\n", *trash_size);
+    printf("Tree size: %d\n", *tree_size);
+}
+/**
+ * @brief Uncompresses the input file and saves it to the output file.
+ *
+ * @param input_file The input file.
+ * @param output_file The output file.
+ * @param file_size The file size.
+ * @param trash_size The trash size.
+ * @param tree_size The tree size.
+ */
+void decode_to_file(FILE *input_file, FILE *output_file, long file_size, unsigned char trash_size, unsigned short tree_size)
+{
+    file_size -= tree_size + 2;
+    file_size <<= 3;
+    file_size -= trash_size;
+
+    Tree *root = get_tree_from_header(
+        input_file,
+        &tree_size);
+
+    Tree *aux = root;
+    unsigned char buffer;
+    int current_bit = 0;
+
+    while (file_size--)
+    {
+        if (current_bit == 0)
+        {
+            fread(&buffer, sizeof(unsigned char), 1, input_file);
+            current_bit = 8;
+        }
+
+        if (buffer & (1 << --current_bit))
+        {
+            aux = aux->right;
+        }
+        else
+        {
+            aux = aux->left;
+        }
+
+        if (aux->left == NULL && aux->right == NULL)
+        {
+            fwrite(&(aux->data), sizeof(unsigned char), 1, output_file);
+            aux = root;
+        }
+    }
+}
+/**
  * @brief Creates a new heap.
  *
  * @return A pointer to the newly created heap.
