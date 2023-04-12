@@ -31,7 +31,7 @@ long get_file_size(FILE *file)
  * @param size The size of the data.
  * @return An array with the frequencies of each byte.
  */
-int *count_frequencies(FILE *file, long size)
+int *count_frequencies(FILE *file, unsigned long size)
 {
     int *frequencies = calloc(MAX, sizeof(int));
     unsigned char byte;
@@ -137,7 +137,7 @@ short save_tree(Tree *root, FILE *output_file)
  * @param trash_size The trash size
  * @param tree_size The tree size
  */
-void save_header(FILE *output_file, short trash_size, short tree_size)
+void save_header(FILE *output_file, unsigned short trash_size, unsigned short tree_size)
 {
     trash_size <<= 13;
     short header = trash_size | tree_size;
@@ -169,7 +169,7 @@ int save_data(FILE *input_file, FILE *output_file, int max_code_size, unsigned c
     for (int i = 0; i < file_size; i++)
     {
         fread(&read_buffer, sizeof(unsigned char), 1, input_file);
-        char *code = dict[read_buffer];
+        unsigned char *code = dict[read_buffer];
 
         for (int j = 0; code[j] != '\0'; j++)
         {
@@ -210,7 +210,7 @@ int save_data(FILE *input_file, FILE *output_file, int max_code_size, unsigned c
  * @param code The current code.
  * @param code_size The current code size.
  */
-void generate_huffman_codes(Tree *root, int max_code_size, unsigned char dict[MAX][max_code_size], unsigned char code[BIT_SIZE], int code_size)
+void generate_huffman_codes(Tree *root, int max_code_size, unsigned char dict[MAX][max_code_size], unsigned char code[max_code_size], int code_size)
 {
     if (root == NULL)
         return;
@@ -219,7 +219,7 @@ void generate_huffman_codes(Tree *root, int max_code_size, unsigned char dict[MA
     {
         // we have a leaf node
         code[code_size] = '\0';         // null terminate the string
-        strcpy(dict[root->data], code); // copy the code to the dictionary
+        strcpy((char *)dict[root->data], (const char*)code); // copy the code to the dictionary
         return;
     }
     // traverse left subtree
@@ -237,7 +237,7 @@ void generate_huffman_codes(Tree *root, int max_code_size, unsigned char dict[MA
  * @param tree_size The tree size.
  * @return Tree* The huffman tree.
  */
-Tree *get_tree_from_header(FILE *input_file, short *tree_size)
+Tree *get_tree_from_header(FILE *input_file, unsigned short *tree_size)
 {
     unsigned char buffer;
     fread(&buffer, sizeof(unsigned char), 1, input_file);
