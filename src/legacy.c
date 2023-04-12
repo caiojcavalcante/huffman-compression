@@ -13,6 +13,37 @@
 #define ENDL printf("\n")
 #define LINE printf("linha %d\n", __LINE__);
 
+/*
+    WARNING: this is the legacy code, IT DOES NOT WORK,
+    some functions could be reused if fixed, but I won't fix it.
+    those structs are wrong btw.
+*/
+
+typedef unsigned char byte;
+
+typedef struct pq_node_t
+{
+    int priority;
+    int freq;
+    unsigned char data;
+    struct pq_node_t *left;
+    struct pq_node_t *right;
+    struct pq_node_t *next;
+} pq_node_t;
+
+typedef struct pq_node_t List;
+
+typedef struct node_t
+{
+    int freq;
+    unsigned char data;
+    struct node_t *left;
+    struct node_t *right;
+    struct node_t *next;
+} node_t;
+
+typedef struct node_t Tree;
+
 int *count_frequency(byte *data, int data_size)
 {
     int *freq = (int *)malloc(sizeof(int) * MAX);
@@ -325,7 +356,7 @@ void print_encoded_data(byte encoded_data[], int encoded_data_size)
 {
     for (int i = 0; i < encoded_data_size; i++)
     {
-        print_binary(encoded_data[i], sizeof(byte) * 8);
+        print_binary(encoded_data[i]);
     }
     printf("\n");
 }

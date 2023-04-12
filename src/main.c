@@ -10,41 +10,46 @@
 void compress(FILE *input_file, FILE *output_file);
 void decompress(FILE *input_file, FILE *output_file);
 
-int main()
+/**
+ * @brief The main function.
+ *
+ * @param argc The number of arguments.
+ * @param argv The arguments.
+ * @return int The exit code.
+ */
+int main(int argc, char *argv[])
 {
-    int mode = 0;
-    char input_file_name[100];
-    char output_file_name[100];
+    if (argc != 4)
+    {
+        printf("Usage: %s <mode> <input file> <output file>\n", argv[0]);
+        return 1;
+    }
 
-    printf("Select mode:\n1-Compress\n0-Decompress\n");
-    scanf("%d", &mode);
-
-    printf("Enter the input file name(with extension):\n");
-    scanf("%s", input_file_name);
-
-    FILE *input_file = fopen(input_file_name, "rb");
+    FILE *input_file = fopen(argv[2], "rb");
+    FILE *output_file = fopen(argv[3], "wb");
 
     if (input_file == NULL)
     {
         printf("File not found.\n");
-        return 1;
+        return 2;
     }
-
-    printf("Enter the output file name(with extension):\n");
-    scanf("%s", output_file_name);
-
-    FILE *output_file = fopen(output_file_name, "wb");
-
     if (output_file == NULL)
     {
         printf("Couldn't save to output file.\n");
-        return 2;
+        return 3;
     }
 
-    if (mode)
+    if (argv[1][1] == 'c')
         compress(input_file, output_file);
-    else
+
+    else if (argv[1][1] == 'd')
         decompress(input_file, output_file);
+
+    else
+    {
+        printf("Invalid mode.\n");
+        return 4;
+    }
 
     return 0;
 }
@@ -96,29 +101,15 @@ void compress(FILE *input_file, FILE *output_file)
         }
     }
 
-    Tree *left, *right;
-
-    int left_priority, right_priority;
-
     printf("Heap size: %d\n", heap->size);
 
     int number_of_nodes = heap->size;
 
-    while (heap->size > 1)
-    {
-        left_priority = heap->data[0].priority;
-        left = pop(heap);
+    Tree *root = mount_huffman_tree(heap);
 
-        right_priority = heap->data[0].priority;
-        right = pop(heap);
-
-        insert(
-            heap,
-            left_priority + right_priority,
-            create_tree('*', left, right));
-    }
-
-    Tree *root = pop(heap);
+    free(frequencies);
+    free(heap->data);
+    free(heap);
 
     int max_code_size = get_tree_depth(root) + 1;
 
@@ -138,10 +129,6 @@ void compress(FILE *input_file, FILE *output_file)
         dict,
         code,
         0);
-
-    free(frequencies);
-    free(heap->data);
-    free(heap);
 
     /*
         For performance reasons, we will write the tree

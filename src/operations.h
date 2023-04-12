@@ -7,6 +7,7 @@
 #define MAX 256
 #define BYTE_SIZE 8
 #define BIT_SIZE 9
+
 /**
  * @brief Gets the file size.
  *
@@ -57,6 +58,92 @@ void swap(void *a, void *b, size_t size)
     memcpy(a, b, size);
     memcpy(b, temp, size);
     free(temp);
+}
+/**
+ * @brief Creates a new heap.
+ *
+ * @return A pointer to the newly created heap.
+ */
+Heap *create_heap()
+{
+    Heap *heap = malloc(sizeof(Heap));
+    heap->data = malloc(257 * sizeof(Heap_node));
+    heap->size = 0;
+    heap->capacity = 257;
+
+    return heap;
+}
+/**
+ * @brief Heapifies the heap (min).
+ *
+ * @param heap The heap to heapify.
+ * @param index The index of the node to heapify.
+ */
+void heapify(Heap *heap, int index)
+{
+    int left_child = index << 1;
+    int right_child = left_child + 1;
+    int smallest = index;
+
+    if (left_child < heap->size && heap->data[left_child].priority < heap->data[smallest].priority)
+        smallest = left_child;
+
+    if (right_child < heap->size && heap->data[right_child].priority < heap->data[smallest].priority)
+        smallest = right_child;
+
+    if (smallest != index)
+    {
+        swap(&heap->data[index], &heap->data[smallest], sizeof(Heap_node));
+        heapify(heap, smallest);
+    }
+}
+/**
+ * @brief Inserts a new node in the heap.
+ *
+ * @param heap The heap to insert the node.
+ * @param priority The priority of the node.
+ * @param tree The tree to store in the node.
+ */
+void insert(Heap *heap, int priority, Tree *tree)
+{
+    if (heap->size == heap->capacity)
+        return;
+
+    Heap_node node = {priority, tree};
+    Heap_node temp;
+
+    heap->data[heap->size++] = node;
+
+    int current_node = heap->size - 1;
+    int parent_node = current_node >> 1;
+
+    while (
+        current_node > 0 &&
+        heap->data[current_node].priority < heap->data[parent_node].priority)
+    {
+        temp = heap->data[current_node];
+        heap->data[current_node] = heap->data[current_node >> 1];
+        heap->data[parent_node] = temp;
+        current_node >>= 1;
+        parent_node >>= 1;
+    }
+}
+/**
+ * @brief Removes the root node from the heap.
+ *
+ * @param heap The heap to remove the root node.
+ */
+Tree *pop(Heap *heap)
+{
+    if (heap->size == 0)
+    {
+        printf("Heap Underflow!\n");
+        return NULL;
+    }
+    Tree *tree = heap->data[0].tree;
+    heap->data[0] = heap->data[--heap->size];
+    heapify(heap, 0);
+    return tree;
 }
 /**
  * @brief Creates a new binary tree node with the specified data.
@@ -202,6 +289,32 @@ int save_data(FILE *input_file, FILE *output_file, int max_code_size, unsigned c
     return trash_size;
 }
 /**
+ * @brief Mounts the huffman tree
+ *
+ * @param heap The heap with the tree nodes
+ * @return Tree* The root of the huffman tree
+ */
+Tree *mount_huffman_tree(Heap *heap)
+{
+    Tree *left, *right;
+    int left_priority, right_priority;
+
+    while (heap->size > 1)
+    {
+        left_priority = heap->data[0].priority;
+        left = pop(heap);
+
+        right_priority = heap->data[0].priority;
+        right = pop(heap);
+
+        insert(
+            heap,
+            left_priority + right_priority,
+            create_tree('*', left, right));
+    }
+    return pop(heap);
+}
+/**
  * @brief Generate the huffman codes.
  *
  * @param root The root of the tree.
@@ -335,90 +448,4 @@ void decode_to_file(FILE *input_file, FILE *output_file, long file_size, unsigne
             aux = root;
         }
     }
-}
-/**
- * @brief Creates a new heap.
- *
- * @return A pointer to the newly created heap.
- */
-Heap *create_heap()
-{
-    Heap *heap = malloc(sizeof(Heap));
-    heap->data = malloc(257 * sizeof(Heap_node));
-    heap->size = 0;
-    heap->capacity = 257;
-
-    return heap;
-}
-/**
- * @brief Heapifies the heap (min).
- *
- * @param heap The heap to heapify.
- * @param index The index of the node to heapify.
- */
-void heapify(Heap *heap, int index)
-{
-    int left_child = index << 1;
-    int right_child = left_child + 1;
-    int smallest = index;
-
-    if (left_child < heap->size && heap->data[left_child].priority < heap->data[smallest].priority)
-        smallest = left_child;
-
-    if (right_child < heap->size && heap->data[right_child].priority < heap->data[smallest].priority)
-        smallest = right_child;
-
-    if (smallest != index)
-    {
-        swap(&heap->data[index], &heap->data[smallest], sizeof(Heap_node));
-        heapify(heap, smallest);
-    }
-}
-/**
- * @brief Inserts a new node in the heap.
- *
- * @param heap The heap to insert the node.
- * @param priority The priority of the node.
- * @param tree The tree to store in the node.
- */
-void insert(Heap *heap, int priority, Tree *tree)
-{
-    if (heap->size == heap->capacity)
-        return;
-
-    Heap_node node = {priority, tree};
-    Heap_node temp;
-
-    heap->data[heap->size++] = node;
-
-    int current_node = heap->size - 1;
-    int parent_node = current_node >> 1;
-
-    while (
-        current_node > 0 &&
-        heap->data[current_node].priority < heap->data[parent_node].priority)
-    {
-        temp = heap->data[current_node];
-        heap->data[current_node] = heap->data[current_node >> 1];
-        heap->data[parent_node] = temp;
-        current_node >>= 1;
-        parent_node >>= 1;
-    }
-}
-/**
- * @brief Removes the root node from the heap.
- *
- * @param heap The heap to remove the root node.
- */
-Tree *pop(Heap *heap)
-{
-    if (heap->size == 0)
-    {
-        printf("Heap Underflow!\n");
-        return NULL;
-    }
-    Tree *tree = heap->data[0].tree;
-    heap->data[0] = heap->data[--heap->size];
-    heapify(heap, 0);
-    return tree;
 }
